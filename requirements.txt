@@ -1,0 +1,11 @@
+streamlit
+pandas
+gspread
+oauth2client
+numpy
+matplotlib
+openpyxl
+mplsoccer
+networkx
+altair
+python-dateutil
