@@ -40,6 +40,9 @@ st.set_page_config(
 @st.cache_data(show_spinner=False)
 def load_csv(path: str, date_col: str) -> pd.DataFrame:
     df = pd.read_csv(path)
+    df = df.dropna(subset=["home.forecasts", "away.forecasts"])
+    df["home.forecasts"] = df["home.forecasts"].apply(np.ceil).astype(int)
+    df["away.forecasts"] = df["away.forecasts"].apply(np.ceil).astype(int)
     df[date_col] = pd.to_datetime(df[date_col], errors="coerce").dt.tz_localize(None)
     return df
 
