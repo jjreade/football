@@ -43,6 +43,15 @@ def load_csv(path: str, date_col: str) -> pd.DataFrame:
     df = df.dropna(subset=["home.forecasts", "away.forecasts"])
     df["home.forecasts"] = df["home.forecasts"].apply(np.ceil).astype(int)
     df["away.forecasts"] = df["away.forecasts"].apply(np.ceil).astype(int)
+    
+    # Assume a ±10% uncertainty for illustration
+    df["home_forecast_lower"] = np.ceil(df["home.forecasts"] * 0.9).astype(int)
+    df["home_forecast_upper"] = np.ceil(df["home.forecasts"] * 1.1).astype(int)
+    df["away_forecast_lower"] = np.ceil(df["away.forecasts"] * 0.9).astype(int)
+    df["away_forecast_upper"] = np.ceil(df["away.forecasts"] * 1.1).astype(int)
+    
+    df["forecast_total_lower"] = df["home_forecast_lower"] + df["away_forecast_lower"]
+    df["forecast_total_upper"] = df["home_forecast_upper"] + df["away_forecast_upper"]
     df[date_col] = pd.to_datetime(df[date_col], errors="coerce").dt.tz_localize(None)
     return df
 
@@ -159,6 +168,7 @@ if venue_choice != "Both":
 today_dt = pd.Timestamp(datetime.combine(today_override, datetime.min.time()))
 if view_choice == "Future fixtures":
     view_df = std[std["date"] >= today_dt].copy()
+    historic_df = std[std["date"] < today_dt].copy()
 else:
     view_df = std[std["date"] < today_dt].copy()
 
@@ -193,9 +203,9 @@ if view_choice == "Future fixtures":
             "home_team",
             "away_team",
             "venue",
-            "home.forecasts",
-            "away.forecasts",
-            "forecast_total",
+            "forecast_total", "forecast_total_lower", "forecast_total_upper",
+            "home.forecasts", "home_forecast_lower", "home_forecast_upper",
+            "away.forecasts", "away_forecast_lower", "away_forecast_upper",
         ]
         show_df = view_df[future_cols].sort_values("match_date")
         show_df = show_df.rename(
@@ -203,9 +213,15 @@ if view_choice == "Future fixtures":
                 "match_date": "Date",
                 "home_team": "Home",
                 "away_team": "Away",
-                "home.forecasts": "Forecast home fans",
-                "away.forecasts": "Forecast away fans",
                 "forecast_total": "Forecast total crowd",
+                "forecast_total_lower": "Forecast total lower bound", 
+                "forecast_total_upper": "Forecast total upper bound",
+                "home.forecasts": "Forecast home fans",
+                "home_forecast_lower": "Home fans lower bound", 
+                "home_forecast_upper": "Home fans upper bound",
+                "away.forecasts": "Forecast away fans",
+                "away_forecast_lower": "Away fans lower bound", 
+                "away_forecast_upper": "Away fans upper bound",
             }
         )
         st.dataframe(show_df, use_container_width=True, height=450)
@@ -213,27 +229,110 @@ if view_choice == "Future fixtures":
         if alt is not None and not show_df.empty:
             st.markdown("**Forecast total crowd over time**")
             chart_df = show_df.rename(columns={"Date": "date"})
-            c = (
+            calc_df = compute_errors(historic_df)
+            mape_home = calc_df["ape_home"].mean()
+            mape_away = calc_df["ape_away"].mean()
+            mape_total = calc_df["ape_total"].mean()
+            # Assume a ±10% uncertainty for illustration
+            chart_df["Home fans lower bound"] = np.ceil(chart_df["Forecast home fans"] * (1-mape_home/100)).astype(int)
+            chart_df["Home fans upper bound"] = np.ceil(chart_df["Forecast home fans"] * (1+mape_home/100)).astype(int)
+            chart_df["Away fans lower bound"] = np.ceil(chart_df["Forecast away fans"] * (1-mape_away/100)).astype(int)
+            chart_df["Away fans upper bound"] = np.ceil(chart_df["Forecast away fans"] * (1+mape_away/100)).astype(int)
+            chart_df["Forecast total lower bound"] = np.ceil(chart_df["Forecast total crowd"] * (1-mape_total/100)).astype(int)
+            chart_df["Forecast total upper bound"] = np.ceil(chart_df["Forecast total crowd"] * (1+mape_total/100)).astype(int)
+            # c = (
+            #     alt.Chart(chart_df)
+            #     .mark_line(point=True)
+            #     .encode(x="date:T", y="Forecast total crowd:Q", tooltip=list(chart_df.columns))
+            #     .properties(height=300)
+            # )
+            # Shaded band for home fan forecast ± bounds
+            band_total = (
                 alt.Chart(chart_df)
-                .mark_line(point=True)
-                .encode(x="date:T", y="Forecast total crowd:Q", tooltip=list(chart_df.columns))
-                .properties(height=300)
+                .mark_area(opacity=0.2, color="black")
+                .encode(
+                    x="date:T",
+                    y="Forecast total lower bound:Q",
+                    y2="Forecast total upper bound:Q",
+                )
             )
-            st.altair_chart(c, use_container_width=True)
+            
+            # Line for point forecast
+            line_total = (
+                alt.Chart(chart_df)
+                .mark_line(point=True, color="black")
+                .encode(
+                    x="date:T",
+                    y="Forecast total crowd:Q",
+                    tooltip=list(chart_df.columns),
+                )
+            )
+            
+            # Combine shaded band and line
+            c_total = band_total + line_total
+            st.altair_chart(c_total, use_container_width=True)
 
             st.markdown("**Forecast home vs away fans over time**")
-            c_home = (
+            # c_home = (
+            #     alt.Chart(chart_df)
+            #     .mark_line(point=True, color="blue")
+            #     .encode(x="date:T", y="Forecast home fans:Q", tooltip=list(chart_df.columns))
+            #     .properties(height=300)
+            # )
+            # Shaded band for home fan forecast ± bounds
+            band_home = (
+                alt.Chart(chart_df)
+                .mark_area(opacity=0.2, color="blue")
+                .encode(
+                    x="date:T",
+                    y="Home fans lower bound:Q",
+                    y2="Home fans upper bound:Q",
+                )
+            )
+            
+            # Line for point forecast
+            line_home = (
                 alt.Chart(chart_df)
                 .mark_line(point=True, color="blue")
-                .encode(x="date:T", y="Forecast home fans:Q", tooltip=list(chart_df.columns))
-                .properties(height=300)
+                .encode(
+                    x="date:T",
+                    y="Forecast home fans:Q",
+                    tooltip=list(chart_df.columns),
+                )
             )
-            c_away = (
+            
+            # Combine shaded band and line
+            c_home = band_home + line_home
+            # c_away = (
+            #     alt.Chart(chart_df)
+            #     .mark_line(point=True, color="red")
+            #     .encode(x="date:T", y="Forecast away fans:Q", tooltip=list(chart_df.columns))
+            #     .properties(height=300)
+            # )
+            band_away = (
+                alt.Chart(chart_df)
+                .mark_area(opacity=0.2, color="red")
+                .encode(
+                    x="date:T",
+                    y="Away fans lower bound:Q",
+                    y2="Away fans upper bound:Q",
+                )
+            )
+            
+            # Line for point forecast
+            line_away = (
                 alt.Chart(chart_df)
                 .mark_line(point=True, color="red")
-                .encode(x="date:T", y="Forecast away fans:Q", tooltip=list(chart_df.columns))
-                .properties(height=300)
+                .encode(
+                    x="date:T",
+                    y="Forecast away fans:Q",
+                    tooltip=list(chart_df.columns),
+                )
             )
+            
+            # Combine shaded band and line
+            c_away = band_away + line_away
+            
             st.altair_chart(c_home, use_container_width=True)
             st.altair_chart(c_away, use_container_width=True)
 
