@@ -187,6 +187,8 @@ st.markdown(
     recent team performance, expected match significance, the distance between the two clubs,
     whether or not the match was on a public holiday plus other scheduling factors. 
     Forecasts are rounded up to the nearest whole fan.
+    
+    If you spot errors, or have suggestions/requests, please contact [James Reade](mailto:j.j.reade@reading.ac.uk?subject=Attendance%20Forecast%20App)
     """
 )
 st.subheader(f"{club} — {venue_choice} — {view_choice}")
