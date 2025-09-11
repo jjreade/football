@@ -180,7 +180,7 @@ st.title("📊 Match Attendance & Fan Forecasts")
 st.markdown(
     """
     This app produces forecasts for attendances at football matches. It is based on the dataset and modelling in 
-    [Humphreys, B., Reade, J. J., Schreyer, D., & Singleton (2024), "Separating the crowds: Examining home and away attendances at football matches." In "Essays on Sports Economics in Memory of Stefan Kesenne", University of Oviedo Publishing.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4275076)
+    [Humphreys, B., Reade, J. J., Schreyer, D., & Singleton, C. (2024), "Separating the crowds: Examining home and away attendances at football matches." In "Essays on Sports Economics in Memory of Stefan Kesenne", University of Oviedo Publishing.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4275076)
     
     **Forecast methodology:**  
     Home and away fan forecasts are produced using historical (home/away) attendance patterns,
